@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今天吃什麼？</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jf-openhuninn@2.1/source/JFOpenHuninn.css">
+<style>
+:root {
+  --bg: #0f0e0c; --surface: #1a1814; --surface2: #242018;
+  --accent: #f5c842; --accent2: #e8864a; --accent3: #7fc8a9;
+  --text: #f0ead8; --muted: #8a8070; --border: #2e2a22; --radius: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'jf-openhuninn', sans-serif; min-height: 100vh; overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' seed='2' result='noise'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='noise' scale='15' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cg filter='url(%23n)'%3E%3Ccircle cx='100' cy='100' r='120' fill='rgba(245,200,66,0.03)'/%3E%3Ccircle cx='100' cy='100' r='90' fill='rgba(232,134,74,0.02)'/%3E%3Ccircle cx='100' cy='100' r='60' fill='rgba(127,200,169,0.02)'/%3E%3C/g%3E%3C/svg%3E"); background-size: 200px 200px; background-position: 0 0; opacity: 0.5;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; position: relative; z-index: 1; }
+header { text-align: center; padding: 3rem 0 2.5rem; }
+.title-label { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.25em; color: var(--accent); text-transform: uppercase; margin-bottom: 0.75rem; }
+h1 { font-size: clamp(2.8rem, 8vw, 5rem); font-weight: 900; line-height: 1; color: var(--text); margin-bottom: 0.5rem; }
+h1 span { color: var(--accent); }
+.subtitle { font-size: 0.95rem; color: var(--muted); margin-top: 0.75rem; }
+
+.status-bar { display: flex; align-items: center; justify-content: center; gap: 0.6rem; margin: 0 0 1rem; font-size: 12px; font-family: 'Space Mono', monospace; min-height: 20px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.status-dot.loading { background: var(--accent2); animation: blink 0.8s ease infinite alternate; }
+.status-dot.ok { background: var(--accent3); }
+.status-dot.err { background: #e24b4a; }
+.status-text { color: var(--muted); }
+@keyframes blink { from { opacity: 0.3; } to { opacity: 1; } }
+
+.date-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 0.5rem 0 2.5rem; flex-wrap: wrap; }
+.date-pill { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 0.4rem 1.2rem; font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); }
+.refresh-btn { background: none; border: 1px solid var(--border); border-radius: 999px; padding: 0.35rem 0.9rem; font-size: 12px; color: var(--muted); cursor: pointer; font-family: 'Space Mono', monospace; transition: all 0.15s; }
+.refresh-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+.refresh-btn.spinning svg { animation: rotate 0.7s linear infinite; }
+
+.meals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+@media (max-width: 600px) { .meals-grid { grid-template-columns: 1fr; } }
+.meal-slot { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; position: relative; overflow: hidden; transition: border-color 0.2s; }
+.meal-slot::after { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 50%; opacity: 0.07; transform: translate(30px, -30px); }
+.meal-slot.main-food::after { background: var(--accent2); }
+.meal-slot.drink::after { background: var(--accent3); }
+.meal-slot.snack::after { background: var(--accent); }
+.meal-slot:hover { border-color: var(--muted); }
+.slot-label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+.slot-label .dot { width: 6px; height: 6px; border-radius: 50%; }
+.main-food .slot-label .dot { background: var(--accent2); }
+.drink .slot-label .dot { background: var(--accent3); }
+.snack .slot-label .dot { background: var(--accent); }
+.slot-label span { color: var(--muted); }
+.meal-name { font-size: 1.4rem; font-weight: 700; line-height: 1.3; color: var(--text); margin-bottom: 0.4rem; min-height: 2.6rem; transition: all 0.15s; }
+.meal-name.spinning { opacity: 0.4; transform: scale(0.97); }
+.meal-style { font-size: 12px; color: var(--muted); margin-bottom: 0.6rem; }
+.meal-price { display: inline-block; font-family: 'Space Mono', monospace; font-size: 11px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); margin-bottom: 0.75rem; }
+.meal-note { font-size: 12px; color: var(--muted); font-style: italic; min-height: 1rem; margin-bottom: 0.75rem; }
+.map-link { display: inline-flex; align-items: center; gap: 0.3rem; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); text-decoration: none; opacity: 0.8; transition: opacity 0.15s; }
+.map-link:hover { opacity: 1; text-decoration: underline; }
+
+.spin-area { text-align: center; margin: 2rem 0; }
+.spin-btn { background: var(--accent); color: #0f0e0c; border: none; border-radius: 999px; padding: 1rem 3rem; font-family: 'jf-openhuninn', sans-serif; font-size: 1.2rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+.spin-btn:hover { transform: scale(1.04); background: #ffd84e; }
+.spin-btn:active { transform: scale(0.97); }
+.spin-btn.spinning { animation: pulse 0.4s ease infinite alternate; background: var(--accent2); }
+.spin-btn svg { display: inline-block; vertical-align: middle; margin-right: 0.5rem; }
+.spin-btn.spinning svg { animation: rotate 0.4s linear infinite; }
+@keyframes pulse { from { transform: scale(1); } to { transform: scale(1.03); } }
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.sheet-btn { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.85rem; padding: 0.55rem 1.4rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 11px; transition: all 0.15s; text-decoration: none; }
+.sheet-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+.mode-toggle { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.mode-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 0.4rem 1.1rem; font-size: 13px; cursor: pointer; color: var(--muted); transition: all 0.15s; }
+.mode-btn.active { background: var(--surface2); border-color: var(--muted); color: var(--text); }
+
+.filters { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+.filter-title { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center; }
+.filter-row:last-child { margin-bottom: 0; }
+.filter-row label { font-size: 12px; color: var(--muted); margin-right: 0.3rem; white-space: nowrap; }
+.chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 0.3rem 0.85rem; font-size: 12px; cursor: pointer; transition: all 0.15s; color: var(--muted); user-select: none; }
+.chip:hover { border-color: var(--muted); color: var(--text); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #0f0e0c; font-weight: 700; }
+
+.history-section { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 2rem; }
+.history-title { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+.history-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.history-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 1rem; font-size: 13px; }
+.history-date { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); min-width: 90px; }
+.history-names { color: var(--text); flex: 1; }
+.history-clear { background: none; border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 11px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: 'Space Mono', monospace; }
+.history-clear:hover { border-color: var(--muted); color: var(--text); }
+.empty-state { color: var(--muted); font-size: 13px; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="title-label">✦ 每日美食決策系統</div>
+    <h1>今天<span>吃</span>什麼</h1>
+    <p class="subtitle">讓命運決定你的餐點組合</p>
+  </header>
+
+  <div class="status-bar">
+    <div class="status-dot ok" id="status-dot"></div>
+    <span class="status-text" id="status-text">已載入內建資料，背景嘗試同步最新清單…</span>
+  </div>
+
+  <div class="date-bar">
+    <div class="date-pill" id="today-date"></div>
+    <button class="refresh-btn" id="refresh-btn" onclick="tryFetchSheet(true)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+      同步最新清單
+    </button>
+  </div>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" onclick="setMode('full')" id="mode-full">🍱 正餐 ＋ 飲料</button>
+    <button class="mode-btn" onclick="setMode('meal')" id="mode-meal">🥢 只選正餐</button>
+    <button class="mode-btn" onclick="setMode('snack')" id="mode-snack">🍩 正餐 ＋ 飲料 ＋ 點心</button>
+  </div>
+
+  <div class="filters">
+    <div class="filter-title">篩選偏好</div>
+    <div class="filter-row">
+      <label>料理風格</label>
+      <div id="style-chips"></div>
+    </div>
+    <div class="filter-row">
+      <label>價格區間</label>
+      <div id="price-chips"></div>
+    </div>
+  </div>
+
+  <div class="meals-grid" id="meals-grid">
+    <div class="meal-slot main-food" id="slot-main">
+      <div>
+        <div class="slot-label"><div class="dot"></div><span>正餐</span></div>
+        <div class="meal-name" id="main-name">點擊轉動</div>
+        <div class="meal-style" id="main-style">—</div>
+        <div class="meal-price" id="main-price">—</div>
+        <div class="meal-note" id="main-note"></div>
+      </div>
+      <a class="map-link" id="main-map" href="#" target="_blank" style="display:none">↗ 查看地圖</a>
+    </div>
+    <div class="meal-slot drink" id="slot-drink">
+      <div>
+        <div class="slot-label"><div class="dot"></div><span>飲料</span></div>
+        <div class="meal-name" id="drink-name">點擊轉動</div>
+        <div class="meal-style" id="drink-style">—</div>
+        <div class="meal-price" id="drink-price">—</div>
+        <div class="meal-note" id="drink-note"></div>
+      </div>
+      <a class="map-link" id="drink-map" href="#" target="_blank" style="display:none">↗ 查看地圖</a>
+    </div>
+    <div class="meal-slot snack" id="slot-snack" style="display:none; grid-column: span 2;">
+      <div>
+        <div class="slot-label"><div class="dot"></div><span>點心</span></div>
+        <div class="meal-name" id="snack-name">點擊轉動</div>
+        <div class="meal-style" id="snack-style">—</div>
+        <div class="meal-price" id="snack-price">—</div>
+        <div class="meal-note" id="snack-note"></div>
+      </div>
+      <a class="map-link" id="snack-map" href="#" target="_blank" style="display:none">↗ 查看地圖</a>
+    </div>
+  </div>
+
+  <div class="spin-area" style="display:flex;flex-direction:column;align-items:center;">
+    <button class="spin-btn" id="spin-btn" onclick="spin()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+      隨機選餐！
+    </button>
+    <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1GpOpLtSDWB-noKZKTlCbLqNjwcCyrufVTbzePAa9KxQ/edit" target="_blank">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+      開啟美食清單
+    </a>
+  </div>
+
+  <div class="history-section">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="history-title">✦ 本週紀錄</div>
+      <button class="history-clear" onclick="clearHistory()">清除紀錄</button>
+    </div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</div>
+
+<script>
+// ── 內建資料（每次更新清單後可貼上新版） ──
+const BUILTIN = [
+  {cat:"正餐",style:"中式",name:"可口豬肝湯麻醬麵",price:"100元以下",map:"https://maps.app.goo.gl/PMVvwCBvjManAqiL7",note:"乾麵/麻醬麵/豬肝湯"},
+  {cat:"正餐",style:"中式",name:"今頂小吃",price:"100-200元",map:"https://maps.app.goo.gl/UkAzqWUbL76FhLJj8",note:""},
+  {cat:"飲料",style:"",name:"藍衫茶所",price:"100元以下",map:"https://maps.app.goo.gl/x4PmdtZd4JrgBjYY6",note:"藍衫奶茶"},
+  {cat:"正餐",style:"中式",name:"1976道地香港美食",price:"100元以下",map:"https://maps.app.goo.gl/5za3ZvfBAoBTN3fH8",note:""},
+  {cat:"正餐",style:"中式",name:"香味饌",price:"100元以下",map:"https://maps.app.goo.gl/3SbT5WQJ5k4PBoqY7",note:"月底的好朋友"},
+  {cat:"正餐",style:"中式",name:"青春素麵線-佛緣本店",price:"100-200元",map:"https://maps.app.goo.gl/QwfzX31ZNNAfBbU69",note:"臭豆腐/碗粿/大補湯"},
+  {cat:"正餐",style:"越式",name:"Pho越南美味",price:"100-200元",map:"https://maps.app.goo.gl/8rKfTasu9qcZBZDn6",note:""},
+  {cat:"正餐",style:"中式",name:"大鉧鍋 香香鍋",price:"100-200元",map:"https://maps.app.goo.gl/UJEHkkGMxbm8ZQ696",note:"小火鍋"},
+  {cat:"正餐",style:"中式",name:"蕭家小館",price:"100-200元",map:"https://maps.app.goo.gl/4TSyL7qVjfCE9Pzw7",note:"餃子/炒飯"},
+  {cat:"正餐",style:"中式",name:"小胖胖扁食",price:"100-200元",map:"https://maps.app.goo.gl/ciNHMyVeSGuNTReD7",note:"排骨飯/便當系列"},
+  {cat:"正餐",style:"中式",name:"小正太小碗菜",price:"100-200元",map:"https://maps.app.goo.gl/AziYpGKykUcow4t5A",note:"酸辣魚"},
+  {cat:"正餐",style:"中式",name:"张亮麻辣烫",price:"100-200元",map:"https://maps.app.goo.gl/icNvJVRxy2nSbZUX9",note:"可以拿很多青菜"},
+  {cat:"正餐",style:"中式",name:"不一樣乾麵",price:"100元以下",map:"https://maps.app.goo.gl/Ad6vqdF3xEDh2BNV8",note:""},
+  {cat:"正餐",style:"韓式",name:"一樣 YEE YUNG",price:"100-200元",map:"https://maps.app.goo.gl/fHu4CGmab2AsAF4W9",note:""},
+  {cat:"正餐",style:"西式",name:"I'm Pasta",price:"100-200元",map:"https://maps.app.goo.gl/RLezctbSMcKT63So7",note:"義大利麵套餐可以吃很飽"},
+  {cat:"正餐",style:"中式",name:"金仙蝦捲飯",price:"100-200元",map:"https://maps.app.goo.gl/ZiU2FTU9B39ZZjiy5",note:""},
+  {cat:"飲料",style:"",name:"RAY CAFE 阿拉比卡手烘咖啡",price:"100-200元",map:"https://maps.app.goo.gl/Xv1JuPJmPgTxiCe77",note:""},
+  {cat:"飲料",style:"",name:"Barista Ray Coffee",price:"100-200元",map:"https://maps.app.goo.gl/ecREAnTiNtksFT2s8",note:"水果咖啡"},
+  {cat:"點心",style:"",name:"小貨��-甜甜圈、蔥抓餅",price:"100元以下",map:"https://maps.app.goo.gl/7eVXFgggAqe1qBmC9",note:""},
+  {cat:"飲料",style:"",name:"甘蔗媽媽",price:"100元以下",map:"https://maps.app.goo.gl/FmVAWqnGjYx751XL6",note:""},
+  {cat:"飲料",style:"",name:"8酵茶",price:"100元以下",map:"https://maps.app.goo.gl/9AXbF3whj48pRcJP7",note:"發酵健康飲料"},
+  {cat:"飲料",style:"",name:"UG",price:"100-200元",map:"https://maps.app.goo.gl/HKD2TNmCTn6ArY91A",note:""},
+  {cat:"正餐",style:"越式",name:"河北。越南",price:"100-200元",map:"https://maps.app.goo.gl/hULTchzEHnVyGnqA6",note:""},
+  {cat:"飲料",style:"",name:"麥吉",price:"100-200元",map:"https://maps.app.goo.gl/BASgBhLhQTYbokz17",note:"泡芙也可以點"},
+  {cat:"點心",style:"",name:"libreadry 巢屋",price:"100-200元",map:"https://maps.app.goo.gl/srbB5WqoBDtZfLT29",note:"蛋塔/歐式麵包"},
+  {cat:"飲料",style:"",name:"季緣",price:"100元以下",map:"https://maps.app.goo.gl/EVdmtoDqE4gsh3Cu6",note:"水蜜桃系列飲料"},
+  {cat:"正餐",style:"泰式",name:"金沙塔雲泰料理",price:"100-200元",map:"https://maps.app.goo.gl/7A7MAnaCTKPhwFPK9",note:"外帶便當餐盒"},
+  {cat:"正餐",style:"西式",name:"日光寒舍洋食館",price:"100-200元",map:"https://maps.app.goo.gl/R9T3SMSJrWWH8JqF8",note:"外帶沙拉和便當"},
+  {cat:"點心",style:"中式",name:"3Q飯糰",price:"100元以下",map:"https://maps.app.goo.gl/dGAyjXJ21KvPU2hq6",note:"只開到13:00"},
+  {cat:"正餐",style:"西式",name:"粟米肉粒",price:"200-300元",map:"https://maps.app.goo.gl/E6xAiuddi9emvPds6",note:"標榜新鮮健康食材"},
+  {cat:"飲料",style:"",name:"SOMA 特調飲品",price:"100元以下",map:"https://maps.app.goo.gl/NfPhoP8pkxzEZS3h9",note:"奶茶好喝"},
+  {cat:"正餐",style:"中式",name:"老漿家",price:"100元以下",map:"https://maps.app.goo.gl/Fk8YgSFPRq6etNnb6",note:""},
+  {cat:"點心",style:"",name:"不貳光車輪餅",price:"100元以下",map:"https://maps.app.goo.gl/XiyECmEwGa5QooqM9",note:""},
+  {cat:"點心",style:"",name:"我是鯛燒君",price:"100元以下",map:"https://maps.app.goo.gl/TfB53PWSfRk4Gbze7",note:""},
+  {cat:"點心",style:"",name:"大頭哥車輪餅",price:"100元以下",map:"https://maps.app.goo.gl/Chk8Vq6FQ7dXb1jT7",note:""},
+  {cat:"點心",style:"",name:"東區紅豆餅",price:"100元以下",map:"https://maps.app.goo.gl/Cw7psvKAveJtQvPW9",note:""},
+  {cat:"點心",style:"",name:"東區粉圓",price:"100元以下",map:"https://maps.app.goo.gl/rDt95QeCfXtHp4Ht7",note:""},
+  {cat:"飲料",style:"",name:"苦茶之家",price:"100元以下",map:"https://maps.app.goo.gl/Go6WoQkQU43r1Psz6",note:""},
+  {cat:"正餐",style:"中式",name:"頂好哨子麵",price:"100元以下",map:"https://maps.app.goo.gl/nQgWNRdQkyL3FWML9",note:""},
+  {cat:"正餐",style:"西式",name:"麥當勞",price:"100-200元",map:"https://maps.app.goo.gl/BhN49fWDj9ohhhi88",note:""},
+  {cat:"正餐",style:"西式",name:"頂呱呱",price:"100-200元",map:"https://maps.app.goo.gl/bUqdqtuN6HaJkuL18",note:""},
+  {cat:"點心",style:"",name:"I'm donut",price:"100-200元",map:"https://maps.app.goo.gl/hfSNMB6Y2QaUvCqy8",note:""},
+  {cat:"飲料",style:"",name:"小仙島",price:"100元以下",map:"https://maps.app.goo.gl/URRaTKwHjeWyKqRw5",note:""},
+  {cat:"正餐",style:"",name:"平價快炒",price:"100-200元",map:"https://maps.app.goo.gl/vcpoXdDGzQERkbhn8",note:""},
+];
+
+const SHEET_ID = '1GpOpLtSDWB-noKZKTlCbLqNjwcCyrufVTbzePAa9KxQ';
+const CACHE_KEY = 'food-data-v3';
+const CACHE_TIME_KEY = 'food-data-time-v3';
+
+let RAW = [], allStyles = [], activeStyles = new Set(), activePrices = new Set();
+let currentMode = 'full', isSpinning = false;
+const allPrices = ['100元以下','100-200元','200-300元'];
+const now = new Date();
+
+document.getElementById('today-date').textContent =
+  now.toLocaleDateString('zh-TW', {year:'numeric',month:'long',day:'numeric',weekday:'long'});
+
+function setStatus(type, msg) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot ' + type;
+  document.getElementById('status-text').textContent = msg;
+}
+
+// ── 啟動：先用內建資料，背景嘗試抓 Sheets ──
+function init() {
+  // 先檢查有沒有更新的暫存
+  const cached = localStorage.getItem(CACHE_KEY);
+  const cachedTime = parseInt(localStorage.getItem(CACHE_TIME_KEY) || '0');
+  const oneHour = 60 * 60 * 1000;
+
+  if (cached && (Date.now() - cachedTime < oneHour)) {
+    try {
+      RAW = JSON.parse(cached);
+      const age = Math.round((Date.now() - cachedTime) / 60000);
+      setStatus('ok', `使用暫存資料（${age} 分鐘前從 Sheets 同步）`);
+      onDataReady();
+      return;
+    } catch(e) {}
+  }
+
+  // 用內建資料先跑
+  RAW = BUILTIN;
+  setStatus('ok', `已載入 ${RAW.length} 筆內建資料，背景同步中…`);
+  onDataReady();
+
+  // 背景嘗試同步 Sheets
+  tryFetchSheet(false);
+}
+
+function tryFetchSheet(manual) {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  if (manual) setStatus('loading', '正在同步 Google Sheets…');
+
+  // 清掉舊 script
+  const old = document.getElementById('_gviz');
+  if (old) old.remove();
+
+  const timer = setTimeout(() => {
+    btn.classList.remove('spinning');
+    if (manual) setStatus('ok', `同步逾時，繼續使用現有資料（共 ${RAW.length} 筆）`);
+  }, 6000);
+
+  window.__gviz = function(resp) {
+    clearTimeout(timer);
+    btn.classList.remove('spinning');
+    try {
+      const cols = resp.table.cols.map(c => c.label);
+      const rows = resp.table.rows
+        .map(r => {
+          const obj = {};
+          cols.forEach((c, i) => { obj[c] = (r.c[i] && r.c[i].v != null) ? String(r.c[i].v) : ''; });
+          return obj;
+        })
+        .filter(r => r['類別'] && r['店家名稱']);
+
+      if (rows.length === 0) throw new Error('empty');
+
+      const fresh = rows.map(r => ({
+        cat:   r['類別'].trim(),
+        style: (r['料理風格']||'').replace('不用分','').trim(),
+        name:  r['店家名稱'].trim(),
+        price: (r['價格區間']||'').trim(),
+        map:   (r['google map / 地址']||'').trim(),
+        note:  (r['備註']||'').trim()
+      }));
+
+      RAW = fresh;
+      localStorage.setItem(CACHE_KEY, JSON.stringify(RAW));
+      localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+      setStatus('ok', `✓ 已從 Google Sheets 同步最新資料（共 ${RAW.length} 筆）`);
+
+      // 重建篩選器
+      allStyles = [...new Set(RAW.filter(r => r.cat==='正餐' && r.style).map(r => r.style))];
+      activeStyles = new Set(allStyles);
+      activePrices = new Set(allPrices);
+      buildChips();
+    } catch(e) {
+      if (manual) setStatus('ok', `同步失敗，繼續使用現有資料（共 ${RAW.length} 筆）`);
+    }
+  };
+
+  const s = document.createElement('script');
+  s.id = '_gviz';
+  s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&callback=__gviz&t=${Date.now()}`;
+  s.onerror = () => {
+    clearTimeout(timer);
+    btn.classList.remove('spinning');
+    if (manual) setStatus('ok', `無法連線，請確認試算表為公開可檢視（共 ${RAW.length} 筆）`);
+  };
+  document.head.appendChild(s);
+}
+
+function onDataReady() {
+  allStyles = [...new Set(RAW.filter(r => r.cat==='正餐' && r.style).map(r => r.style))];
+  activeStyles = new Set(allStyles);
+  activePrices = new Set(allPrices);
+  buildChips();
+}
+
+function buildChips() {
+  const sc = document.getElementById('style-chips');
+  sc.innerHTML = '';
+  allStyles.forEach(s => {
+    const el = document.createElement('span');
+    el.className = 'chip' + (activeStyles.has(s) ? ' active' : '');
+    el.textContent = s;
+    el.onclick = () => { toggleSet(activeStyles, s); buildChips(); };
+    sc.appendChild(el);
+  });
+  const pc = document.getElementById('price-chips');
+  pc.innerHTML = '';
+  allPrices.forEach(p => {
+    const el = document.createElement('span');
+    el.className = 'chip' + (activePrices.has(p) ? ' active' : '');
+    el.textContent = p;
+    el.onclick = () => { toggleSet(activePrices, p); buildChips(); };
+    pc.appendChild(el);
+  });
+}
+
+function toggleSet(set, val) {
+  if (set.has(val)) { if (set.size > 1) set.delete(val); } else set.add(val);
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode-' + mode).classList.add('active');
+  const drink = document.getElementById('slot-drink');
+  const snack = document.getElementById('slot-snack');
+  const main  = document.getElementById('slot-main');
+  if (mode === 'meal')       { drink.style.display='none';  snack.style.display='none'; main.style.gridColumn='span 2'; }
+  else if (mode === 'full')  { drink.style.display='flex';  snack.style.display='none'; main.style.gridColumn=''; }
+  else                       { drink.style.display='flex';  snack.style.display='flex'; snack.style.gridColumn='span 2'; main.style.gridColumn=''; }
+}
+
+function pick(cat) {
+  let pool = RAW.filter(r => r.cat === cat);
+  if (cat === '正餐') {
+    let p2 = pool.filter(r => activePrices.has(r.price));
+    if (activeStyles.size < allStyles.length) p2 = p2.filter(r => activeStyles.has(r.style));
+    if (p2.length) pool = p2;
+  }
+  if (!pool.length) return { name:'（無資料）', style:'', price:'', map:'', note:'' };
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function updateSlot(prefix, item) {
+  document.getElementById(prefix+'-name').textContent  = item.name;
+  document.getElementById(prefix+'-style').textContent = item.style || '—';
+  document.getElementById(prefix+'-price').textContent = item.price;
+  document.getElementById(prefix+'-note').textContent  = item.note || '';
+  const mapEl = document.getElementById(prefix+'-map');
+  if (item.map && item.map.startsWith('http')) { mapEl.href=item.map; mapEl.style.display='inline-flex'; }
+  else { mapEl.style.display='none'; }
+}
+
+function spin() {
+  if (isSpinning) return;
+  isSpinning = true;
+  const btn = document.getElementById('spin-btn');
+  btn.classList.add('spinning');
+  btn.textContent = '選擇中…';
+  ['main','drink','snack'].forEach(p => document.getElementById(p+'-name').classList.add('spinning'));
+
+  let ticks = 0;
+  const cats = ['正餐','飲料','點心'];
+  const slots = ['main','drink','snack'];
+  const interval = setInterval(() => {
+    ticks++;
+    slots.forEach((p,i) => {
+      const slot = document.getElementById('slot-'+p);
+      if (slot && slot.style.display !== 'none')
+        document.getElementById(p+'-name').textContent = pick(cats[i]).name;
+    });
+    if (ticks >= 18) { clearInterval(interval); finalize(); }
+  }, 80);
+
+  function finalize() {
+    const main=pick('正餐'), drink=pick('飲料'), snack=pick('點心');
+    updateSlot('main',main); updateSlot('drink',drink); updateSlot('snack',snack);
+    ['main','drink','snack'].forEach(p => document.getElementById(p+'-name').classList.remove('spinning'));
+    btn.classList.remove('spinning');
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+      隨機選餐！`;
+    isSpinning = false;
+    const record = { date: now.toLocaleDateString('zh-TW'), items: [main.name] };
+    if (currentMode !== 'meal') record.items.push(drink.name);
+    if (currentMode === 'snack') record.items.push(snack.name);
+    saveHistory(record); renderHistory();
+  }
+}
+
+function saveHistory(r) {
+  const h = JSON.parse(localStorage.getItem('food-history') || '[]');
+  h.unshift(r);
+  localStorage.setItem('food-history', JSON.stringify(h.slice(0,14)));
+}
+function clearHistory() { localStorage.removeItem('food-history'); renderHistory(); }
+function renderHistory() {
+  const h = JSON.parse(localStorage.getItem('food-history') || '[]');
+  document.getElementById('history-list').innerHTML = h.length
+    ? h.map(r => `<div class="history-item"><span class="history-date">${r.date}</span><span class="history-names">${r.items.join(' ＋ ')}</span></div>`).join('')
+    : '<div class="empty-state">還沒有紀錄，快去轉！</div>';
+}
+
+// 每天 11:00 自動同步
+function schedule11() {
+  const t = new Date(); t.setHours(11,0,0,0);
+  if (new Date() >= t) t.setDate(t.getDate()+1);
+  setTimeout(() => { tryFetchSheet(false); schedule11(); }, t - new Date());
+}
+
+renderHistory();
+init();
+schedule11();
+</script>
+</body>
+</html>
